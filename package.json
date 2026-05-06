@@ -1,0 +1,28 @@
+{
+  "name": "posbackend",
+  "version": "1.0.0",
+  "description": "Production-grade POS system backend with offline-first architecture and cloud sync",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "db:migrate": "node src/db/migrate.js"
+  },
+  "keywords": ["pos", "point-of-sale", "backend", "sync", "offline-first"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.3",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
