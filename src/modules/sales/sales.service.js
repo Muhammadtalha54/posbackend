@@ -23,13 +23,13 @@ const salesService = {
    * Create a new sale with line items
    * Runs inside a PostgreSQL transaction for atomicity
    */
-  async create(userId, { items, discount, payment_type }) {
+  async create(userId, { id, items, discount, payment_type, customer_name, payment_status, created_at }) {
     const client = await salesRepository.getClient();
 
     try {
       await client.query('BEGIN');
 
-      const saleId = uuidv4();
+      const saleId = id || uuidv4();
 
       // Calculate total from all line items
       let totalAmount = 0;
@@ -53,8 +53,13 @@ const salesService = {
 
       // 1. Create the sale header
       const sale = await salesRepository.createSale(
-        client, saleId, userId, totalAmount, discount || 0, finalAmount, payment_type
+        client, saleId, userId, totalAmount, discount || 0, finalAmount, payment_type, customer_name, payment_status
       );
+
+      // If created_at was provided (offline sync), set it manually in db
+      if (created_at) {
+        await client.query(`UPDATE sales SET created_at = $1, updated_at = $1 WHERE id = $2`, [new Date(created_at), saleId]);
+      }
 
       // 2. Create each sale item + update stock + log stock change
       for (const item of saleItems) {
@@ -101,6 +106,16 @@ const salesService = {
       sales,
       pagination: buildPaginationMeta(total, page, limit),
     };
+  },
+
+  async markAsPaid(userId, id) {
+    const sale = await salesRepository.markSaleAsPaid(id, userId);
+    if (!sale) {
+      const err = new Error('Sale not found or already paid');
+      err.statusCode = 404;
+      throw err;
+    }
+    return sale;
   },
 };
 

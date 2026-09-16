@@ -27,6 +27,12 @@ const syncRepository = {
     return rows[0];
   },
 
+  async getSyncLog(id) {
+    const query = `SELECT * FROM sync_logs WHERE id = $1`;
+    const { rows } = await pool.query(query, [id]);
+    return rows[0];
+  },
+
   /**
    * Upsert a product (INSERT or UPDATE on conflict)
    * Used during sync upload to handle offline-created data

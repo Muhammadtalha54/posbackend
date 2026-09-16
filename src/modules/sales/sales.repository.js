@@ -22,13 +22,13 @@ const salesRepository = {
   /**
    * Create a sale header record
    */
-  async createSale(client, id, userId, totalAmount, discount, finalAmount, paymentType) {
+  async createSale(client, id, userId, totalAmount, discount, finalAmount, paymentType, customerName, paymentStatus) {
     const query = `
-      INSERT INTO sales (id, user_id, total_amount, discount, final_amount, payment_type)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO sales (id, user_id, total_amount, discount, final_amount, payment_type, customer_name, payment_status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `;
-    const { rows } = await client.query(query, [id, userId, totalAmount, discount, finalAmount, paymentType]);
+    const { rows } = await client.query(query, [id, userId, totalAmount, discount, finalAmount, paymentType, customerName || null, paymentStatus || 'paid']);
     return rows[0];
   },
 
@@ -87,6 +87,20 @@ const salesRepository = {
     const query = `SELECT COUNT(*) FROM sales WHERE user_id = $1`;
     const { rows } = await pool.query(query, [userId]);
     return parseInt(rows[0].count, 10);
+  },
+
+  /**
+   * Mark a sale as paid
+   */
+  async markSaleAsPaid(id, userId) {
+    const query = `
+      UPDATE sales 
+      SET payment_status = 'paid', updated_at = NOW() 
+      WHERE id = $1 AND user_id = $2
+      RETURNING *
+    `;
+    const { rows } = await pool.query(query, [id, userId]);
+    return rows[0];
   },
 };
 

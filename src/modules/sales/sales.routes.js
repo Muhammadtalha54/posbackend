@@ -22,5 +22,6 @@ router.use(authMiddleware);
 
 router.post('/create', validate(createSaleSchema), salesController.create);
 router.get('/list', salesController.list);
+router.patch('/:id/mark-paid', salesController.markPaid);
 
 module.exports = router;
