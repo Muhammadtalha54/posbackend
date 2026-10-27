@@ -22,13 +22,23 @@ const salesRepository = {
   /**
    * Create a sale header record
    */
-  async createSale(client, id, userId, totalAmount, discount, finalAmount, paymentType, customerName, paymentStatus) {
+  async createSale(client, id, userId, totalAmount, discount, finalAmount, paymentType, customerName, paymentStatus, createdAt) {
     const query = `
-      INSERT INTO sales (id, user_id, total_amount, discount, final_amount, payment_type, customer_name, payment_status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO sales (id, user_id, total_amount, discount, final_amount, payment_type, customer_name, payment_status, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW()), COALESCE($9, NOW()))
       RETURNING *
     `;
-    const { rows } = await client.query(query, [id, userId, totalAmount, discount, finalAmount, paymentType, customerName || null, paymentStatus || 'paid']);
+    const { rows } = await client.query(query, [
+      id,
+      userId,
+      totalAmount,
+      discount,
+      finalAmount,
+      paymentType,
+      customerName || null,
+      paymentStatus || 'paid',
+      createdAt ? new Date(createdAt) : null,
+    ]);
     return rows[0];
   },
 
@@ -57,9 +67,33 @@ const salesRepository = {
   },
 
   /**
-   * List sales with pagination (user-scoped)
+   * List sales with pagination and optional date/search filters (user-scoped)
    */
-  async findAllByUser(userId, limit, offset) {
+  async findAllByUser(userId, limit, offset, { startDate, endDate, search, paymentStatus } = {}) {
+    let whereClauses = ['s.user_id = $1'];
+    let params = [userId];
+    let paramIndex = 2;
+
+    if (startDate) {
+      whereClauses.push(`s.created_at >= $${paramIndex++}`);
+      params.push(new Date(startDate));
+    }
+    if (endDate) {
+      whereClauses.push(`s.created_at <= $${paramIndex++}`);
+      params.push(new Date(endDate));
+    }
+    if (search) {
+      whereClauses.push(`(s.customer_name ILIKE $${paramIndex} OR s.id::text ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+    if (paymentStatus) {
+      whereClauses.push(`s.payment_status = $${paramIndex++}`);
+      params.push(paymentStatus);
+    }
+
+    const whereStr = whereClauses.join(' AND ');
+
     const query = `
       SELECT s.*, 
         json_agg(json_build_object(
@@ -71,21 +105,45 @@ const salesRepository = {
         )) AS items
       FROM sales s
       LEFT JOIN sale_items si ON s.id = si.sale_id
-      WHERE s.user_id = $1
+      WHERE ${whereStr}
       GROUP BY s.id
       ORDER BY s.created_at DESC
-      LIMIT $2 OFFSET $3
+      LIMIT $${paramIndex++} OFFSET $${paramIndex}
     `;
-    const { rows } = await pool.query(query, [userId, limit, offset]);
+    params.push(limit, offset);
+    const { rows } = await pool.query(query, params);
     return rows;
   },
 
   /**
-   * Count total sales for pagination metadata
+   * Count total sales with filters
    */
-  async countByUser(userId) {
-    const query = `SELECT COUNT(*) FROM sales WHERE user_id = $1`;
-    const { rows } = await pool.query(query, [userId]);
+  async countByUser(userId, { startDate, endDate, search, paymentStatus } = {}) {
+    let whereClauses = ['user_id = $1'];
+    let params = [userId];
+    let paramIndex = 2;
+
+    if (startDate) {
+      whereClauses.push(`created_at >= $${paramIndex++}`);
+      params.push(new Date(startDate));
+    }
+    if (endDate) {
+      whereClauses.push(`created_at <= $${paramIndex++}`);
+      params.push(new Date(endDate));
+    }
+    if (search) {
+      whereClauses.push(`(customer_name ILIKE $${paramIndex} OR id::text ILIKE $${paramIndex})`);
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+    if (paymentStatus) {
+      whereClauses.push(`payment_status = $${paramIndex++}`);
+      params.push(paymentStatus);
+    }
+
+    const whereStr = whereClauses.join(' AND ');
+    const query = `SELECT COUNT(*) FROM sales WHERE ${whereStr}`;
+    const { rows } = await pool.query(query, params);
     return parseInt(rows[0].count, 10);
   },
 

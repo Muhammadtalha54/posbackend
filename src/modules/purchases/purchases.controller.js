@@ -27,6 +27,16 @@ const purchasesController = {
       next(err);
     }
   },
+
+  /** PATCH /purchases/:id/mark-paid */
+  async markPaid(req, res, next) {
+    try {
+      const purchase = await purchasesService.markAsPaid(req.user.userId, req.params.id);
+      return sendSuccess(res, 'Purchase marked as paid.', purchase);
+    } catch (err) {
+      next(err);
+    }
+  },
 };
 
 module.exports = purchasesController;

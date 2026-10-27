@@ -26,8 +26,9 @@ const pool = new Pool({
   max: 20,
   // Close idle connections after 30 seconds
   idleTimeoutMillis: 30000,
-  // Timeout if a connection can't be established in 5 seconds
-  connectionTimeoutMillis: 5000,
+  // Timeout if a connection can't be established in 15 seconds
+  connectionTimeoutMillis: 15000,
+  ssl: config.db.host.includes('supabase') || config.isProduction ? { rejectUnauthorized: false } : false,
 });
 
 // Log pool errors globally so they don't crash the app silently

@@ -23,13 +23,13 @@ const purchasesService = {
    * Create a new purchase with line items
    * Runs inside a PostgreSQL transaction
    */
-  async create(userId, { supplier_name, items }) {
+  async create(userId, { id, supplier_name, items, paid_amount, due_amount, payment_status, payment_type, created_at }) {
     const client = await purchasesRepository.getClient();
 
     try {
       await client.query('BEGIN');
 
-      const purchaseId = uuidv4();
+      const purchaseId = id || uuidv4();
 
       // Calculate totals
       let totalAmount = 0;
@@ -48,9 +48,13 @@ const purchasesService = {
         });
       }
 
+      const finalPaid = paid_amount !== undefined ? paid_amount : totalAmount;
+      const finalDue = due_amount !== undefined ? due_amount : Math.max(0, totalAmount - finalPaid);
+      const finalStatus = payment_status || (finalDue <= 0 ? 'paid' : (finalPaid > 0 ? 'partial' : 'credit'));
+
       // 1. Create the purchase header
       const purchase = await purchasesRepository.createPurchase(
-        client, purchaseId, userId, supplier_name, totalAmount
+        client, purchaseId, userId, supplier_name, totalAmount, finalPaid, finalDue, finalStatus, payment_type || 'cash', created_at
       );
 
       // 2. Create each item + increase stock + log
@@ -94,6 +98,16 @@ const purchasesService = {
       purchases,
       pagination: buildPaginationMeta(total, page, limit),
     };
+  },
+
+  async markAsPaid(userId, id) {
+    const purchase = await purchasesRepository.markPurchaseAsPaid(id, userId);
+    if (!purchase) {
+      const err = new Error('Purchase not found or already paid');
+      err.statusCode = 404;
+      throw err;
+    }
+    return purchase;
   },
 };
 

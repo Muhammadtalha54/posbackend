@@ -15,6 +15,15 @@ const app = require('./app');
 const config = require('./config');
 const pool = require('./db/pool');
 
+// Catch any unhandled exceptions or rejections globally
+process.on('uncaughtException', (err) => {
+  console.error('CRITICAL: Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('CRITICAL: Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 async function startServer() {
   try {
     // Verify database connection before starting

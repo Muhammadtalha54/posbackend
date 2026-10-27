@@ -3,9 +3,10 @@
  * Products Microservice — Repository
  * ============================================
  * 
- * All product database queries. Every query is
- * scoped by user_id to prevent cross-shop access.
- * Soft delete is used to preserve sale/purchase history.
+ * Direct PostgreSQL queries for products table:
+ * - CRUD operations
+ * - Stock increase/decrease
+ * - Paginated listing scoped to user_id
  * ============================================
  */
 
@@ -13,31 +14,32 @@ const pool = require('../../db/pool');
 
 const productsRepository = {
   /**
-   * Insert a new product
+   * Create a new product scoped to a user
    */
-  async create(id, userId, data) {
+  async create({ id, userId, name, categoryId, productCode, purchasePrice, salePrice, stock, lowStockThreshold }) {
     const query = `
-      INSERT INTO products (id, user_id, name, category_id, purchase_price, sale_price, stock, product_code)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO products (id, user_id, name, category_id, product_code, purchase_price, sale_price, stock, low_stock_threshold)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
-    const { rows } = await pool.query(query, [
-      id, userId, data.name, data.category_id || null,
-      data.purchase_price, data.sale_price, data.stock || 0, data.product_code || null,
-    ]);
+    const values = [
+      id, userId, name, categoryId || null, productCode || null,
+      purchasePrice, salePrice, stock || 0, lowStockThreshold || 10,
+    ];
+    const { rows } = await pool.query(query, values);
     return rows[0];
   },
 
   /**
-   * Update product fields (only non-undefined fields are updated)
+   * Update product details dynamically based on provided fields
    */
-  async update(id, userId, data) {
-    // Build dynamic SET clause from provided fields
+  async update(id, userId, updates) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
 
-    for (const [key, value] of Object.entries(data)) {
+    // Dynamically build SET clause from updates object
+    for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) {
         fields.push(`${key} = $${paramIndex}`);
         values.push(value);
@@ -110,10 +112,11 @@ const productsRepository = {
 
   /**
    * Decrease stock for a product (used during sales)
+   * Clamped to minimum 0 to prevent negative stock
    */
   async decreaseStock(productId, quantity, client) {
     const query = `
-      UPDATE products SET stock = stock - $1, updated_at = NOW()
+      UPDATE products SET stock = GREATEST(0, stock - $1), updated_at = NOW()
       WHERE id = $2 AND is_deleted = FALSE
       RETURNING stock
     `;

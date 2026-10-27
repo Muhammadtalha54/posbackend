@@ -17,13 +17,23 @@ const purchasesRepository = {
   },
 
   /** Create a purchase header */
-  async createPurchase(client, id, userId, supplierName, totalAmount) {
+  async createPurchase(client, id, userId, supplierName, totalAmount, paidAmount, dueAmount, paymentStatus, paymentType, createdAt) {
     const query = `
-      INSERT INTO purchases (id, user_id, supplier_name, total_amount)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO purchases (id, user_id, supplier_name, total_amount, paid_amount, due_amount, payment_status, payment_type, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, NOW()), COALESCE($9, NOW()))
       RETURNING *
     `;
-    const { rows } = await client.query(query, [id, userId, supplierName, totalAmount]);
+    const { rows } = await client.query(query, [
+      id,
+      userId,
+      supplierName,
+      totalAmount,
+      paidAmount ?? totalAmount,
+      dueAmount ?? 0,
+      paymentStatus || 'paid',
+      paymentType || 'cash',
+      createdAt ? new Date(createdAt) : null,
+    ]);
     return rows[0];
   },
 
@@ -69,11 +79,23 @@ const purchasesRepository = {
     return rows;
   },
 
-  /** Count purchases for pagination */
+  /** Count total purchases */
   async countByUser(userId) {
     const query = `SELECT COUNT(*) FROM purchases WHERE user_id = $1`;
     const { rows } = await pool.query(query, [userId]);
     return parseInt(rows[0].count, 10);
+  },
+
+  /** Mark a purchase invoice as paid (clears credit) */
+  async markPurchaseAsPaid(id, userId) {
+    const query = `
+      UPDATE purchases
+      SET payment_status = 'paid', paid_amount = total_amount, due_amount = 0, updated_at = NOW()
+      WHERE id = $1 AND user_id = $2
+      RETURNING *
+    `;
+    const { rows } = await pool.query(query, [id, userId]);
+    return rows[0];
   },
 };
 

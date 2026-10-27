@@ -51,15 +51,10 @@ const salesService = {
       // Apply discount
       const finalAmount = totalAmount - (discount || 0);
 
-      // 1. Create the sale header
+      // 1. Create the sale header with local created_at
       const sale = await salesRepository.createSale(
-        client, saleId, userId, totalAmount, discount || 0, finalAmount, payment_type, customer_name, payment_status
+        client, saleId, userId, totalAmount, discount || 0, finalAmount, payment_type, customer_name, payment_status, created_at
       );
-
-      // If created_at was provided (offline sync), set it manually in db
-      if (created_at) {
-        await client.query(`UPDATE sales SET created_at = $1, updated_at = $1 WHERE id = $2`, [new Date(created_at), saleId]);
-      }
 
       // 2. Create each sale item + update stock + log stock change
       for (const item of saleItems) {
@@ -95,12 +90,18 @@ const salesService = {
     }
   },
 
-  /** List sales with pagination */
+  /** List sales with pagination and filters */
   async list(userId, query) {
     const { page, limit, offset } = getPagination(query);
+    const filters = {
+      startDate: query.start_date,
+      endDate: query.end_date,
+      search: query.search,
+      paymentStatus: query.payment_status,
+    };
     const [sales, total] = await Promise.all([
-      salesRepository.findAllByUser(userId, limit, offset),
-      salesRepository.countByUser(userId),
+      salesRepository.findAllByUser(userId, limit, offset, filters),
+      salesRepository.countByUser(userId, filters),
     ]);
     return {
       sales,

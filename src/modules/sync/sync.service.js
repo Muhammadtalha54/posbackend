@@ -18,6 +18,7 @@
  */
 
 const salesService = require('../sales/sales.service');
+const purchasesService = require('../purchases/purchases.service');
 const syncRepository = require('./sync.repository');
 
 const syncService = {
@@ -56,6 +57,9 @@ const syncService = {
           case 'sale_paid':
             // Custom operation to mark sale as paid
             result = await salesService.markAsPaid(userId, data.sale_id);
+            break;
+          case 'purchase':
+            result = await purchasesService.create(userId, { id: client_id, ...data });
             break;
           default:
             result = { id: client_id, entity_type, status: 'logged' };
