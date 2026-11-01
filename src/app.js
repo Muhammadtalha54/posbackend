@@ -31,7 +31,7 @@ app.use(cors());
 
 // ─── Health Check ─────────────────────────────────────────
 // Quick endpoint to verify server is running
-app.get('/health', (req, res) => {
+app.get(['/health', '/healthz'], (req, res) => {
   res.json({
     success: true,
     message: 'POS Backend is running.',
