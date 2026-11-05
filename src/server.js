@@ -25,21 +25,20 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 async function startServer() {
+  // Start HTTP server immediately so Render proxy and health checks succeed right away
+  app.listen(config.port, '0.0.0.0', () => {
+    console.log(`\n🚀 POS Backend running on 0.0.0.0:${config.port}`);
+    console.log(`📍 Environment: ${config.nodeEnv}`);
+    console.log(`🔗 Health: http://0.0.0.0:${config.port}/health`);
+    console.log(`🔗 API:    http://0.0.0.0:${config.port}/api\n`);
+  });
+
+  // Verify database connection asynchronously
   try {
-    // Verify database connection before starting
     await pool.query('SELECT NOW()');
     console.log('✅ PostgreSQL connected successfully.');
-
-    // Start HTTP server binding to 0.0.0.0 (required for Render / cloud container routing)
-    app.listen(config.port, '0.0.0.0', () => {
-      console.log(`\n🚀 POS Backend running on 0.0.0.0:${config.port}`);
-      console.log(`📍 Environment: ${config.nodeEnv}`);
-      console.log(`🔗 Health: http://localhost:${config.port}/health`);
-      console.log(`🔗 API:    http://localhost:${config.port}/api\n`);
-    });
   } catch (err) {
-    console.error('❌ Failed to start server:', err.message);
-    process.exit(1);
+    console.error('⚠️ Database connection warning:', err.message);
   }
 }
 
