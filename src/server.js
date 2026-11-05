@@ -30,9 +30,9 @@ async function startServer() {
     await pool.query('SELECT NOW()');
     console.log('✅ PostgreSQL connected successfully.');
 
-    // Start HTTP server
-    app.listen(config.port, () => {
-      console.log(`\n🚀 POS Backend running on port ${config.port}`);
+    // Start HTTP server binding to 0.0.0.0 (required for Render / cloud container routing)
+    app.listen(config.port, '0.0.0.0', () => {
+      console.log(`\n🚀 POS Backend running on 0.0.0.0:${config.port}`);
       console.log(`📍 Environment: ${config.nodeEnv}`);
       console.log(`🔗 Health: http://localhost:${config.port}/health`);
       console.log(`🔗 API:    http://localhost:${config.port}/api\n`);
