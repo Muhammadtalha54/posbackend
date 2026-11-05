@@ -39,7 +39,7 @@ const syncRepository = {
    */
   async upsertProduct(id, userId, data) {
     const query = `
-      INSERT INTO products (id, user_id, name, category_id, purchase_price, sale_price, stock, product_code)
+      INSERT INTO products (id, user_id, name, category_id, purchase_price, sale_price, stock, product_code, low_stock_threshold)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -48,6 +48,7 @@ const syncRepository = {
         sale_price = EXCLUDED.sale_price,
         stock = EXCLUDED.stock,
         product_code = EXCLUDED.product_code,
+        low_stock_threshold = COALESCE(EXCLUDED.low_stock_threshold, products.low_stock_threshold, 10),
         updated_at = NOW()
       RETURNING *
     `;
@@ -55,6 +56,7 @@ const syncRepository = {
       id, userId, data.name, data.category_id || null,
       data.purchase_price || 0, data.sale_price || 0,
       data.stock || 0, data.product_code || null,
+      data.low_stock_threshold !== undefined && data.low_stock_threshold !== null ? data.low_stock_threshold : 10,
     ]);
     return rows[0];
   },
