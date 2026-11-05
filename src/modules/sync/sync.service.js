@@ -32,9 +32,9 @@ const syncService = {
     for (const entity of entities) {
       const { entity_type, client_id, data } = entity;
 
-      // Check if already synced to be idempotent (except updates like sale_paid)
+      // Check if already synced to be idempotent (except updates like sale_paid / purchase_paid)
       const existingLog = await syncRepository.getSyncLog(client_id);
-      if (existingLog && existingLog.is_synced && entity_type !== 'sale_paid') {
+      if (existingLog && existingLog.is_synced && entity_type !== 'sale_paid' && entity_type !== 'purchase_paid') {
         results.push({ client_id, entity_type, synced: true });
         continue;
       }
@@ -61,6 +61,10 @@ const syncService = {
             break;
           case 'purchase':
             result = await purchasesService.create(userId, { id: client_id, ...data });
+            break;
+          case 'purchase_paid':
+            const targetPurchaseId = (data && data.purchase_id) ? data.purchase_id : client_id;
+            result = await purchasesService.markAsPaid(userId, targetPurchaseId);
             break;
           default:
             result = { id: client_id, entity_type, status: 'logged' };
