@@ -18,7 +18,7 @@ const createSaleSchema = z.object({
   id: z.string().uuid().optional(),
   items: z.array(saleItemSchema).min(1, 'At least one item is required'),
   discount: z.number().int().min(0).default(0),
-  payment_type: z.enum(['cash', 'card', 'upi', 'credit']).default('cash'),
+  payment_type: z.enum(['cash', 'card', 'upi', 'credit', 'bank_transfer']).default('cash'),
   customer_name: z.string().optional().nullable(),
   payment_status: z.enum(['paid', 'pending']).default('paid'),
   created_at: z.string().optional(),
